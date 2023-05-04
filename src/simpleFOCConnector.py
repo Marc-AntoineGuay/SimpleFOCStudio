@@ -111,6 +111,11 @@ class SimpleFOCDevice:
     PUSH_CONFG_ON_CONNECT = 'Push config'
     ONLY_CONNECT = 'Only connect'
 
+    run_custom_thread_commands  = False
+    time_since_activated_thread = 0
+    thread_target_increments = 0
+
+
     @staticmethod
     def getInstance():
         """ Static access method. """
@@ -131,7 +136,7 @@ class SimpleFOCDevice:
 
             self.connectionStateListenerList = []
 
-            self.serialPortName = ""
+            self.serialPortName = "COM4"
             self.serialRate = 115200
             self.serialByteSize = serial.EIGHTBITS
             self.serialParity = serial.PARITY_NONE
@@ -139,10 +144,10 @@ class SimpleFOCDevice:
             self.commProvider = SerialPortReceiveHandler()
             self.commProvider.commandDataReceived.connect(self.parseResponses)
             self.commProvider.stateMonitorReceived.connect(self.parseStateResponses)
-            self.connectionID = ""
+            self.connectionID = "M"
 
             # command id of the device
-            self.devCommandID = ''
+            self.devCommandID = 'M'
 
             # motion control paramters
             self.PIDVelocity = PIDController(self.VELOCITY_PID)
@@ -156,7 +161,7 @@ class SimpleFOCDevice:
             self.velocityLimit = 0
             self.voltageLimit = 0
             self.currentLimit = 0
-            self.controlType =  SimpleFOCDevice.ANGLE_CONTROL
+            self.controlType =  SimpleFOCDevice.TORQUE_CONTROL
             self.torqueType =  SimpleFOCDevice.VOLTAGE_TORQUE
             self.initialTarget = 0
             self.motionDownsample = 0
@@ -622,6 +627,9 @@ class SimpleFOCDevice:
             self.getCommand('MG6')
             time.sleep(100 / 1000)
 
+        
+            
+
 
     def pushConfiguration(self):
         print("push")
@@ -818,6 +826,19 @@ class SimpleFOCDevice:
             comandResponse = comandResponse.replace('Monitor |', '')
             self.parseMonitorResponse(comandResponse)
 
+    def set_custom_thread_command_state(self, state, increments = 0):
+        if state:
+            self.time_since_activated_thread = int(time.time())
+        self.thread_target_increments = int(float(increments))
+        self.run_custom_thread_commands = state
+
+    def custom_thread(self):
+        if self.isConnected:
+            if self.run_custom_thread_commands:
+                dt = int((self.time_since_activated_thread - time.time()))
+                target = dt * self.thread_target_increments/10
+                self.sendTargetValue(str(target))
+
 
 class SerialPortReceiveHandler(QtCore.QThread):
     monitoringDataReceived = QtCore.pyqtSignal(list)
@@ -884,11 +905,13 @@ class SerialPortReceiveHandler(QtCore.QThread):
         return self._stop_event.is_set()
 
 
+    
 class StateUpdateRunner(QtCore.QThread):
 
     def __init__(self, connector=None, *args,**kwargs):
         super(StateUpdateRunner, self).__init__(*args, **kwargs)
         self._stop_event = threading.Event()
+
         self.deviceConnector = connector
     def run(self):
         try:
@@ -896,6 +919,7 @@ class StateUpdateRunner(QtCore.QThread):
                 if self.deviceConnector is not None:
                     if self.deviceConnector.commProvider.serialComm.isOpen():
                         self.deviceConnector.updateStates()
+                        self.deviceConnector.custom_thread()
                         time.sleep(1)
         except SerialException as serialException:
             logging.error(serialException, exc_info=True)

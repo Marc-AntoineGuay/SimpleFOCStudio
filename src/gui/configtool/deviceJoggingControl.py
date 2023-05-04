@@ -77,21 +77,26 @@ class DeviceJoggingControl(QtWidgets.QGroupBox):
     def joggingFastBackward(self):
         currenttarget = self.device.targetNow
         increment = self.incrementEdit.text()
-        newTarget = float(currenttarget) - 2 * float(increment)
-        self.device.sendTargetValue(str(newTarget))
+        #newTarget = float(currenttarget) - 2 * float(increment)
+        self.device.set_custom_thread_command_state(True, -float(increment))
+
     def joggingBackward(self):
         increment = self.incrementEdit.text()
         currenttarget = self.device.targetNow
         newTarget = float(currenttarget) - float(increment)
         self.device.sendTargetValue(str(newTarget))
     def joggingStop(self):
+        self.device.set_custom_thread_command_state(False)
+
         controltType = self.device.controlType
         if (controltType == SimpleFOCDevice.ANGLE_CONTROL or
                 controltType == SimpleFOCDevice.ANGLE_OPENLOOP_CONTROL):
             self.device.sendTargetValue(self.device.angleNow)
         if (controltType == SimpleFOCDevice.VELOCITY_CONTROL or
-                controltType == SimpleFOCDevice.VELOCITY_OPENLOOP_CONTROL):
+                controltType == SimpleFOCDevice.VELOCITY_OPENLOOP_CONTROL or
+                controltType == SimpleFOCDevice.TORQUE_CONTROL):
             self.device.sendTargetValue('0')
+            
     def joggingFordward(self):
         increment = self.incrementEdit.text()
         currenttarget = self.device.targetNow
@@ -100,5 +105,6 @@ class DeviceJoggingControl(QtWidgets.QGroupBox):
     def joggingfastFordward(self):
         increment = self.incrementEdit.text()
         currenttarget = self.device.targetNow
-        newTarget = float(currenttarget) + 2 * float(increment)
-        self.device.sendTargetValue(str(newTarget))
+        #newTarget = float(currenttarget) + 2 * float(increment)
+        self.device.set_custom_thread_command_state(True, increment)
+
